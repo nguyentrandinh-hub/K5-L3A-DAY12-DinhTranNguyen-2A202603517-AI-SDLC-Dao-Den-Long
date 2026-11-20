@@ -35,6 +35,7 @@ const hudFlames = document.getElementById('hud-flames')!;
 const hudTime = document.getElementById('hud-time')!;
 const hudLanterns = document.getElementById('hud-lanterns')!;
 const hudScore = document.getElementById('hud-score')!;
+const moteCapLabel = document.getElementById('mote-cap-label')!;
 const moteSlotsEl = document.getElementById('mote-slots')!;
 const abDash = document.getElementById('ab-dash')!;
 const abDashStatus = document.getElementById('ab-dash-status')!;
@@ -45,6 +46,7 @@ const windPill = document.getElementById('wind-pill')!;
 const promptBanner = document.getElementById('prompt-banner')!;
 const offscreenArrow = document.getElementById('offscreen-arrow')!;
 const hitVignette = document.getElementById('hit-vignette')!;
+const floatingPopupsEl = document.getElementById('floating-popups')!;
 const minimapCanvas = document.getElementById('minimap-canvas') as HTMLCanvasElement;
 const minimapCtx = minimapCanvas.getContext('2d')!;
 
@@ -79,10 +81,11 @@ const overlayButtons = document.getElementById('overlay-buttons')!;
 const settingsBox = document.getElementById('settings-box')!;
 const setVolumeInput = document.getElementById('set-volume') as HTMLInputElement;
 const setSensInput = document.getElementById('set-sens') as HTMLInputElement;
+const setColorblindInput = document.getElementById('set-colorblind') as HTMLInputElement;
 const valVolume = document.getElementById('val-volume')!;
 const valSens = document.getElementById('val-sens')!;
 
-// Build 10 firefly slots
+// Build 10 firefly slots (represents fill ratio up to dynamic capacity 10..20)
 const moteSlotNodes: HTMLDivElement[] = [];
 for (let i = 0; i < 10; i++) {
   const s = document.createElement('div');
@@ -96,6 +99,7 @@ const SETTINGS_KEY = 'dao_den_long_settings_v1';
 interface GameSettings {
   volume: number;
   sensitivity: number;
+  colorblind: boolean;
 }
 function loadSettings(): GameSettings {
   try {
@@ -104,13 +108,14 @@ function loadSettings(): GameSettings {
       const parsed = JSON.parse(raw) as Partial<GameSettings>;
       return {
         volume: typeof parsed.volume === 'number' ? parsed.volume : 70,
-        sensitivity: typeof parsed.sensitivity === 'number' ? parsed.sensitivity : 100
+        sensitivity: typeof parsed.sensitivity === 'number' ? parsed.sensitivity : 100,
+        colorblind: Boolean(parsed.colorblind)
       };
     }
   } catch {
     // ignore storage errors
   }
-  return { volume: 70, sensitivity: 100 };
+  return { volume: 70, sensitivity: 100, colorblind: false };
 }
 function saveSettings(s: GameSettings): void {
   try {
@@ -125,6 +130,8 @@ const sound = new SoundFX();
 sound.setVolume(settings.volume / 100);
 setVolumeInput.value = String(settings.volume);
 setSensInput.value = String(settings.sensitivity);
+setColorblindInput.checked = settings.colorblind;
+document.body.classList.toggle('colorblind', settings.colorblind);
 valVolume.textContent = `${settings.volume}%`;
 valSens.textContent = `${(settings.sensitivity / 100).toFixed(1)}x`;
 
@@ -137,6 +144,11 @@ setVolumeInput.addEventListener('input', () => {
 setSensInput.addEventListener('input', () => {
   settings.sensitivity = Number(setSensInput.value);
   valSens.textContent = `${(settings.sensitivity / 100).toFixed(1)}x`;
+  saveSettings(settings);
+});
+setColorblindInput.addEventListener('change', () => {
+  settings.colorblind = setColorblindInput.checked;
+  document.body.classList.toggle('colorblind', settings.colorblind);
   saveSettings(settings);
 });
 
@@ -202,12 +214,51 @@ scene.add(cloudSea);
   scene.add(moon);
 }
 
-// Companion guide firefly (100% cosmetic, orbits Mây & nudges toward nearest unlit lantern)
+// Companion guide firefly (100% cosmetic, hysteresis + smooth lerp so it never snaps between lanterns)
 const guideFirefly = new THREE.Mesh(
   new THREE.SphereGeometry(0.14, 8, 8),
   new THREE.MeshBasicMaterial({ color: COLORS.gold })
 );
 scene.add(guideFirefly);
+let guideTargetId: string | null = null;
+
+// Floating sky paper lanterns (hoa đăng) drifting over the sea of clouds
+const skyLanterns: Array<{ mesh: THREE.Mesh; baseX: number; baseY: number; baseZ: number; phase: number }> = [];
+{
+  const skyLGeo = new THREE.CylinderGeometry(0.32, 0.25, 0.55, 6);
+  const skyLMat = new THREE.MeshBasicMaterial({ color: COLORS.lanternLit, transparent: true, opacity: 0.72 });
+  for (let i = 0; i < 18; i++) {
+    const ang = (i / 18) * Math.PI * 2;
+    const dist = 54 + (i % 3) * 14;
+    const m = new THREE.Mesh(skyLGeo, skyLMat);
+    const bx = Math.cos(ang) * dist;
+    const by = 4 + (i % 5) * 3.5;
+    const bz = Math.sin(ang) * dist;
+    m.position.set(bx, by, bz);
+    scene.add(m);
+    skyLanterns.push({ mesh: m, baseX: bx, baseY: by, baseZ: bz, phase: i * 0.7 });
+  }
+}
+
+// Drain energy beams connecting draining Ink Shades to their target lantern
+const drainBeamsGroup = new THREE.Group();
+scene.add(drainBeamsGroup);
+
+const skyNightColor = new THREE.Color(COLORS.sky);
+const skyDawnColor = new THREE.Color(0x3a2648);
+
+function spawnFloatingPopup(text: string, worldX: number, worldY: number, worldZ: number, bonus = false): void {
+  const v = new THREE.Vector3(worldX, worldY, worldZ).project(camera);
+  const sx = (v.x * 0.5 + 0.5) * window.innerWidth;
+  const sy = (-v.y * 0.5 + 0.5) * window.innerHeight;
+  const el = document.createElement('div');
+  el.className = bonus ? 'float-popup bonus' : 'float-popup';
+  el.textContent = text;
+  el.style.left = `${Math.max(80, Math.min(window.innerWidth - 80, sx))}px`;
+  el.style.top = `${Math.max(80, Math.min(window.innerHeight - 100, sy))}px`;
+  floatingPopupsEl.appendChild(el);
+  setTimeout(() => el.remove(), 1080);
+}
 
 // Cosmetic particle pools: dash trails, celebration embers, and Night 3 wind leaves
 interface SimpleParticle {
@@ -460,9 +511,13 @@ let pulseAnimT = 0;
 // Dynamic entity pools
 interface LanternVisual {
   group: THREE.Group;
+  bulb: THREE.Mesh;
+  tearBand: THREE.Mesh;
   bulbMat: THREE.MeshStandardMaterial;
   light: THREE.PointLight;
   safeRing: THREE.Mesh;
+  fuelBarBg: THREE.Mesh;
+  fuelBarFill: THREE.Mesh;
 }
 const lanternVisuals = new Map<string, LanternVisual>();
 const moteVisuals = new Map<string, THREE.Mesh>();
@@ -512,6 +567,32 @@ function createLanternVisual(id: string, x: number, y: number, z: number): Lante
   bulb.position.y = 3.45;
   group.add(bulb);
 
+  // Torn paper band visible when lantern is unlit (colorblind distinction)
+  const tearBand = new THREE.Mesh(
+    new THREE.TorusGeometry(0.51, 0.05, 6, 8),
+    new THREE.MeshBasicMaterial({ color: 0x1a1c26 })
+  );
+  tearBand.position.y = 3.45;
+  tearBand.rotation.x = Math.PI / 2 + 0.35;
+  group.add(tearBand);
+
+  // 3D Fuel bar floating above lit lantern
+  const fuelBarBg = new THREE.Mesh(
+    new THREE.BoxGeometry(1.6, 0.16, 0.08),
+    new THREE.MeshBasicMaterial({ color: 0x1a1c26 })
+  );
+  fuelBarBg.position.y = 5.0;
+  fuelBarBg.visible = false;
+  group.add(fuelBarBg);
+
+  const fuelBarFill = new THREE.Mesh(
+    new THREE.BoxGeometry(1.54, 0.12, 0.1),
+    new THREE.MeshBasicMaterial({ color: COLORS.lanternLit })
+  );
+  fuelBarFill.position.y = 5.0;
+  fuelBarFill.visible = false;
+  group.add(fuelBarFill);
+
   const light = new THREE.PointLight(COLORS.lanternLit, 0, 24);
   light.position.y = 3.45;
   group.add(light);
@@ -526,7 +607,7 @@ function createLanternVisual(id: string, x: number, y: number, z: number): Lante
   group.add(safeRing);
 
   scene.add(group);
-  const vis: LanternVisual = { group, bulbMat, light, safeRing };
+  const vis: LanternVisual = { group, bulb, tearBand, bulbMat, light, safeRing, fuelBarBg, fuelBarFill };
   lanternVisuals.set(id, vis);
   return vis;
 }
@@ -579,7 +660,6 @@ let lastCountdownSec = -1;
 let lastWindWarn = false;
 
 const keys = new Set<string>();
-let pauseQueued = false;
 let isDraggingMouse = false;
 
 renderer.domElement.addEventListener('mousedown', (e) => {
@@ -601,11 +681,10 @@ window.addEventListener('mousemove', (e) => {
 
 window.addEventListener('keydown', (e) => {
   keys.add(e.code);
-  if (e.code === 'KeyM') {
+  if (e.code === 'KeyM' && !e.repeat) {
     sound.toggleMute();
   }
-  if ((e.code === 'Escape' || e.code === 'KeyP') && (screenMode === 'playing' || screenMode === 'paused')) {
-    pauseQueued = true;
+  if ((e.code === 'Escape' || e.code === 'KeyP') && !e.repeat && (screenMode === 'playing' || screenMode === 'paused')) {
     if (screenMode === 'playing') {
       document.exitPointerLock?.();
       showPauseOverlay();
@@ -734,6 +813,11 @@ function startNight(night: 1 | 2 | 3): void {
 }
 
 function showPauseOverlay(): void {
+  if (engine.state === 'playing') {
+    engine.step({ ...createDefaultInput(), pause: true });
+    engine.step(createDefaultInput());
+  }
+  keys.clear();
   screenMode = 'paused';
   setOverlay('Tạm dừng', `Đang tạm dừng tại ${engine.map.name}. Toàn bộ thời gian và logic đã dừng.`, [
     { label: 'Tiếp tục', onClick: resumeFromPause },
@@ -748,6 +832,9 @@ function resumeFromPause(): void {
     engine.step({ ...createDefaultInput(), pause: true });
     engine.step(createDefaultInput());
   }
+  keys.clear();
+  accumulator = 0;
+  lastTime = performance.now();
   screenMode = 'playing';
   overlay.classList.add('hidden');
 }
@@ -761,11 +848,24 @@ function handleEvents(events: EventRecord[]): void {
         break;
       case 'deposit':
         sound.playDeposit();
+        spawnFloatingPopup(`+${Number(ev.data.amount) * 5}`, engine.player.x, engine.player.y + 2.3, engine.player.z);
+        break;
+      case 'refuel':
+        sound.playDeposit();
+        spawnFloatingPopup(`+${Number(ev.data.amount) * 5} Châm dầu!`, engine.player.x, engine.player.y + 2.4, engine.player.z);
         break;
       case 'lantern_lit': {
         sound.playLanternLit();
         const litL = engine.lanterns.find((x) => x.id === ev.data.lantern_id);
         if (litL) {
+          const isRelight = Boolean(ev.data.relight);
+          spawnFloatingPopup(
+            isRelight ? `+40 Thắp lại! (Sức chứa ${engine.getCarryCapacity()})` : `+100 Thắp đèn! (Sức chứa ${engine.getCarryCapacity()})`,
+            litL.x,
+            litL.y + 4.8,
+            litL.z,
+            true
+          );
           for (let i = 0; i < 16; i++) {
             spawnSpark(
               litL.x + (Math.random() - 0.5) * 1.4,
@@ -780,11 +880,16 @@ function handleEvents(events: EventRecord[]): void {
         }
         break;
       }
-      case 'pulse':
+      case 'pulse': {
         sound.playPulse();
         pulseAnimT = 1.0;
         pulseRing.position.set(engine.player.x, engine.player.y + 0.2, engine.player.z);
+        const ids = Array.isArray(ev.data.stunned_ids) ? ev.data.stunned_ids : [];
+        if (ids.length > 0) {
+          spawnFloatingPopup(`Tỏa Sáng! (${ids.length} Bóng Mực)`, engine.player.x, engine.player.y + 2.5, engine.player.z, true);
+        }
         break;
+      }
       case 'dash':
         sound.playDash();
         break;
@@ -855,32 +960,86 @@ function formatTime(sec: number): string {
 }
 
 function syncVisuals(elapsedSec: number): void {
-  // Player
+  // Player & hat lantern glow (radiant when full capacity or Wind Charm active)
   playerGroup.position.set(engine.player.x, engine.player.y, engine.player.z);
   playerGroup.visible = engine.player.fallRespawnTicks === 0;
   miniLanternPivot.rotation.z = Math.sin(elapsedSec * 5) * 0.18;
-  playerLight.intensity = 3.0 + engine.player.carried * 0.35;
+  const fullCap = engine.player.carried >= engine.getCarryCapacity();
+  const miniMat = miniLanternMesh.material as THREE.MeshStandardMaterial;
+  if (engine.player.charmTicks > 0) {
+    miniMat.emissive.setHex(COLORS.mayScarf);
+    miniMat.emissiveIntensity = 2.6;
+  } else if (fullCap) {
+    miniMat.emissive.setHex(COLORS.moteCore);
+    miniMat.emissiveIntensity = 2.8;
+  } else {
+    miniMat.emissive.setHex(COLORS.lanternLit);
+    miniMat.emissiveIntensity = 1.8;
+  }
+  playerLight.intensity = 3.0 + engine.player.carried * 0.35 + (fullCap ? 1.5 : 0);
 
-  // Lanterns & nearest unlit lantern for prompt + offscreen arrow
+  // Floating sky lanterns gentle drift
+  for (const sl of skyLanterns) {
+    sl.mesh.position.y = sl.baseY + Math.sin(elapsedSec * 0.8 + sl.phase) * 1.6;
+    sl.mesh.rotation.y = elapsedSec * 0.3 + sl.phase;
+  }
+
+  // Lanterns & nearest interactable lantern for prompt + offscreen arrow
   let litCount = 0;
-  let nearestUnlit: { x: number; y: number; z: number; deposited: number; dist: number } | null = null;
+  let nearestUnlit: { x: number; y: number; z: number; deposited: number; everLit: boolean; dist: number } | null = null;
+  let nearestInteract: {
+    lit: boolean;
+    deposited: number;
+    everLit: boolean;
+    fuel: number;
+    dist: number;
+  } | null = null;
+  const blink1Hz = Math.sin(elapsedSec * Math.PI * 2) > 0;
+
   for (const l of engine.lanterns) {
-    if (l.lit) litCount++;
-    else {
-      const d = xzDistance(engine.player.x, engine.player.z, l.x, l.z);
-      if (!nearestUnlit || d < nearestUnlit.dist) {
-        nearestUnlit = { x: l.x, y: l.y, z: l.z, deposited: l.deposited, dist: d };
-      }
+    const fuel = l.lit ? l.fuelUnits / 60 : 0;
+    const isLowFuel = l.lit && fuel < DEFAULT_TUNING.low_fuel_threshold;
+    const d = xzDistance(engine.player.x, engine.player.z, l.x, l.z);
+
+    if (l.lit) {
+      litCount++;
+    } else if (!nearestUnlit || d < nearestUnlit.dist) {
+      nearestUnlit = { x: l.x, y: l.y, z: l.z, deposited: l.deposited, everLit: l.everLit, dist: d };
+    }
+
+    const canAccept = !l.lit || l.fuelUnits < 6000;
+    if (canAccept && d <= DEFAULT_TUNING.interact_radius && (!nearestInteract || d < nearestInteract.dist)) {
+      nearestInteract = { lit: l.lit, deposited: l.deposited, everLit: l.everLit, fuel, dist: d };
     }
 
     let vis = lanternVisuals.get(l.id);
     if (!vis) vis = createLanternVisual(l.id, l.x, l.y, l.z);
     vis.group.position.set(l.x, l.y, l.z);
-    const ratio = Math.min(1, l.deposited / DEFAULT_TUNING.lantern_cost);
+
+    const reqCost = l.everLit ? DEFAULT_TUNING.relight_cost : DEFAULT_TUNING.lantern_cost;
+    const ratio = Math.min(1, l.deposited / reqCost);
+    // Unlit lantern squished 20% + visible tear band (colorblind-safe shape distinction)
+    vis.bulb.scale.set(1, l.lit ? 1.0 : 0.8, 1);
+    vis.tearBand.visible = !l.lit;
     vis.bulbMat.color.setHex(l.lit ? COLORS.lanternCore : COLORS.lanternUnlit);
-    vis.bulbMat.emissiveIntensity = l.lit ? 2.4 : ratio * 0.8;
-    vis.light.intensity = l.lit ? 14 : ratio * 3;
-    vis.safeRing.visible = l.lit;
+
+    const blinkMult = isLowFuel ? (blink1Hz ? 1.0 : 0.25) : 1.0;
+    vis.bulbMat.emissiveIntensity = (l.lit ? 2.4 : ratio * 0.8) * blinkMult;
+    vis.light.intensity = (l.lit ? 14 : ratio * 3) * blinkMult;
+    vis.safeRing.visible = l.lit && !isLowFuel;
+
+    // 3D Fuel bar above lit lantern (blinks at 1 Hz when fuel < 30)
+    vis.fuelBarBg.visible = l.lit && (!isLowFuel || blink1Hz);
+    vis.fuelBarFill.visible = l.lit && (!isLowFuel || blink1Hz);
+    if (l.lit) {
+      const fRatio = Math.max(0.02, fuel / 100);
+      vis.fuelBarFill.scale.x = fRatio;
+      (vis.fuelBarFill.material as THREE.MeshBasicMaterial).color.setHex(
+        isLowFuel ? (settings.colorblind ? 0xffffff : 0xff5a5f) : COLORS.lanternLit
+      );
+      vis.fuelBarBg.lookAt(camera.position);
+      vis.fuelBarFill.lookAt(camera.position);
+    }
   }
 
   // Standard ambient light formula: 0.15 + 0.55 * (lit / total)
@@ -908,18 +1067,67 @@ function syncVisuals(elapsedSec: number): void {
       particles.splice(i, 1);
     }
   }
-  if (nearestUnlit) {
-    const dx = nearestUnlit.x - engine.player.x;
-    const dz = nearestUnlit.z - engine.player.z;
-    const d = Math.hypot(dx, dz) || 1;
-    guideFirefly.visible = true;
-    guideFirefly.position.set(
-      engine.player.x + (dx / d) * 1.9 + Math.cos(elapsedSec * 4) * 0.3,
-      engine.player.y + 2.0 + Math.sin(elapsedSec * 5) * 0.25,
-      engine.player.z + (dz / d) * 1.9 + Math.sin(elapsedSec * 4) * 0.3
-    );
+  // Smooth guide firefly with 3.0m hysteresis (never snaps abruptly between two lanterns!)
+  const unlitList = engine.lanterns.filter((l) => !l.lit);
+  if (unlitList.length > 0) {
+    let chosen = guideTargetId ? unlitList.find((l) => l.id === guideTargetId) ?? null : null;
+    let chosenDist = chosen ? xzDistance(engine.player.x, engine.player.z, chosen.x, chosen.z) : Infinity;
+    for (const l of unlitList) {
+      const d = xzDistance(engine.player.x, engine.player.z, l.x, l.z);
+      if (!chosen || d < chosenDist - 3.0) {
+        chosen = l;
+        chosenDist = d;
+      }
+    }
+    guideTargetId = chosen ? chosen.id : null;
+    if (chosen) {
+      const dx = chosen.x - engine.player.x;
+      const dz = chosen.z - engine.player.z;
+      const d = Math.hypot(dx, dz) || 1;
+      const desired = new THREE.Vector3(
+        engine.player.x + (dx / d) * 1.9 + Math.cos(elapsedSec * 3.2) * 0.35,
+        engine.player.y + 2.0 + Math.sin(elapsedSec * 4.2) * 0.25,
+        engine.player.z + (dz / d) * 1.9 + Math.sin(elapsedSec * 3.2) * 0.35
+      );
+      if (!guideFirefly.visible) {
+        guideFirefly.position.copy(desired);
+      } else {
+        guideFirefly.position.lerp(desired, 0.08);
+      }
+      guideFirefly.visible = true;
+    }
   } else {
+    guideTargetId = null;
     guideFirefly.visible = false;
+  }
+
+  // Drain energy beams from draining shades to target lantern
+  while (drainBeamsGroup.children.length > 0) {
+    drainBeamsGroup.remove(drainBeamsGroup.children[0]);
+  }
+  const beamColor = settings.colorblind ? 0x00b3ff : COLORS.shadeRim;
+  for (const s of engine.shades) {
+    if (s.state === 'drain' && s.targetLanternId) {
+      const targetL = engine.lanterns.find((l) => l.id === s.targetLanternId);
+      if (targetL) {
+        const pts = [
+          new THREE.Vector3(s.x, s.y + 0.4, s.z),
+          new THREE.Vector3(targetL.x, targetL.y + 3.4, targetL.z)
+        ];
+        const geo = new THREE.BufferGeometry().setFromPoints(pts);
+        const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: beamColor }));
+        drainBeamsGroup.add(line);
+      }
+    }
+  }
+
+  // Subtle golden dawn sky transition in final 30s when enough lanterns are lit
+  const reqWinLit = Math.ceil(DEFAULT_TUNING.win_ratio * engine.lanterns.length);
+  if (engine.timeLeftS <= 30 && litCount >= reqWinLit) {
+    const dawnT = Math.min(1, (30 - engine.timeLeftS) / 30);
+    scene.background = skyNightColor.clone().lerp(skyDawnColor, dawnT);
+  } else {
+    scene.background = skyNightColor.clone();
   }
 
   // Minimap radar (top-down relative to island)
@@ -986,7 +1194,8 @@ function syncVisuals(elapsedSec: number): void {
     if (!v) v = createShadeVisual(s.id);
     v.group.position.set(s.x, s.y, s.z);
     v.bodyMat.color.setHex(s.state === 'stunned' ? COLORS.shadeStun : COLORS.shadeBody);
-    v.bodyMat.emissiveIntensity = s.state === 'stunned' ? 0.25 : 0.85;
+    v.bodyMat.emissive.setHex(settings.colorblind ? 0x00b3ff : COLORS.shadeRim);
+    v.bodyMat.emissiveIntensity = s.state === 'stunned' ? 0.25 : s.state === 'drain' ? 1.4 : 0.85;
   }
 
   // Drifters
@@ -1047,11 +1256,13 @@ function syncVisuals(elapsedSec: number): void {
   camera.lookAt(engine.player.x, engine.player.y + 1.3, engine.player.z);
 
   // HUD updates
+  const reqLit = Math.ceil(DEFAULT_TUNING.win_ratio * engine.lanterns.length);
   hudFlames.textContent = engine.player.flames > 0 ? '🔥'.repeat(engine.player.flames) : '—';
-  hudLanterns.textContent = `${litCount} / ${engine.lanterns.length}`;
+  hudLanterns.textContent = `${litCount}/${engine.lanterns.length} (cần ${reqLit})`;
   hudScore.textContent = String(engine.score);
-  hudTime.textContent = formatTime(engine.timeLeftS);
-  hudTime.classList.toggle('danger', engine.timeLeftS <= 30);
+  const isDangerTime = engine.timeLeftS <= 30;
+  hudTime.textContent = (isDangerTime && settings.colorblind ? '⚠ ' : '') + formatTime(engine.timeLeftS);
+  hudTime.classList.toggle('danger', isDangerTime);
 
   // 10s countdown tick sound
   if (screenMode === 'playing' && engine.timeLeftS <= 10 && engine.timeLeftS > 0) {
@@ -1062,9 +1273,12 @@ function syncVisuals(elapsedSec: number): void {
     }
   }
 
-  // 10-slot firefly bar
+  // Dynamic carry capacity firefly bar (10..20)
+  const cap = engine.getCarryCapacity();
+  moteCapLabel.textContent = `Đom đóm: ${engine.player.carried} / ${cap}`;
+  const filledSlots = Math.round((engine.player.carried / cap) * 10);
   for (let i = 0; i < 10; i++) {
-    moteSlotNodes[i].classList.toggle('filled', i < engine.player.carried);
+    moteSlotNodes[i].classList.toggle('filled', i < filledSlots);
   }
 
   // Cooldown cards
@@ -1101,10 +1315,17 @@ function syncVisuals(elapsedSec: number): void {
     windPill.style.display = 'none';
   }
 
-  // Interact prompt
-  if (screenMode === 'playing' && nearestUnlit && nearestUnlit.dist <= DEFAULT_TUNING.interact_radius) {
+  // Interact prompt (Light, Relight, or Refuel)
+  if (screenMode === 'playing' && nearestInteract) {
     promptBanner.style.display = 'block';
-    promptBanner.textContent = `E — Nạp ánh sáng (${nearestUnlit.deposited}/10)`;
+    if (!nearestInteract.lit) {
+      const req = nearestInteract.everLit ? DEFAULT_TUNING.relight_cost : DEFAULT_TUNING.lantern_cost;
+      promptBanner.textContent = nearestInteract.everLit
+        ? `E — Thắp lại đèn (${nearestInteract.deposited}/${req})`
+        : `E — Nạp ánh sáng (${nearestInteract.deposited}/${req})`;
+    } else {
+      promptBanner.textContent = `E — Châm dầu (${Math.round(nearestInteract.fuel)}/100)`;
+    }
   } else {
     promptBanner.style.display = 'none';
   }
@@ -1160,8 +1381,7 @@ function readLiveInput(): InputState {
   input.interact = keys.has('KeyE') || keys.has('KeyF');
   input.pulse = keys.has('KeyQ');
   input.dash = keys.has('ShiftLeft') || keys.has('ShiftRight');
-  input.pause = pauseQueued;
-  pauseQueued = false;
+  input.pause = false;
   return input;
 }
 

@@ -98,6 +98,14 @@
         color: #ff5a5f;
         animation: blink 0.7s infinite;
       }
+      body.colorblind .timer-box.danger {
+        color: #ffffff;
+      }
+      .mote-cap-label {
+        font-size: 12px;
+        font-weight: 700;
+        color: #f2c14e;
+      }
       @keyframes blink {
         0%,
         100% {
@@ -349,6 +357,41 @@
         height: 126px;
         display: block;
       }
+      #floating-popups {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        overflow: hidden;
+        z-index: 9;
+      }
+      .float-popup {
+        position: absolute;
+        font-size: 16px;
+        font-weight: 800;
+        color: #f2c14e;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.85);
+        transform: translate(-50%, -50%);
+        animation: floatUp 1.05s ease-out forwards;
+        white-space: nowrap;
+      }
+      .float-popup.bonus {
+        color: #fff6c2;
+        font-size: 18px;
+      }
+      @keyframes floatUp {
+        0% {
+          opacity: 1;
+          transform: translate(-50%, -50%) scale(0.9);
+        }
+        25% {
+          opacity: 1;
+          transform: translate(-50%, -70%) scale(1.08);
+        }
+        100% {
+          opacity: 0;
+          transform: translate(-50%, -145%) scale(1);
+        }
+      }
     </style>
   </head>
   <body>
@@ -375,6 +418,7 @@
         <div id="prompt-banner" class="prompt-banner">E — Nạp ánh sáng (0/10)</div>
         <div id="offscreen-arrow" class="offscreen-arrow">➤</div>
         <div id="hit-vignette" class="hit-vignette"></div>
+        <div id="floating-popups"></div>
         <div class="minimap-wrap">
           <canvas id="minimap-canvas" width="126" height="126"></canvas>
         </div>
@@ -385,6 +429,7 @@
             <kbd>E</kbd> Nạp · <kbd>Q</kbd> Tỏa sáng · <kbd>M</kbd> Tiếng · <kbd>Esc/P</kbd> Tạm dừng
           </div>
           <div class="mote-bar-wrap">
+            <div id="mote-cap-label" class="mote-cap-label">Đom đóm: 0 / 10</div>
             <div id="mote-slots" class="mote-slots"></div>
           </div>
           <div class="abilities">
@@ -416,6 +461,10 @@
             <div class="setting-row">
               <label for="set-sens">Độ nhạy camera (<span id="val-sens">1.0x</span>)</label>
               <input id="set-sens" type="range" min="50" max="250" value="100" />
+            </div>
+            <div class="setting-row">
+              <label for="set-colorblind">Bảng màu dễ phân biệt (mù màu)</label>
+              <input id="set-colorblind" type="checkbox" style="width: 20px; height: 20px; accent-color: #00b3ff" />
             </div>
           </div>
           <div id="overlay-buttons" class="btn-row"></div>
