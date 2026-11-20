@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Đảo Đèn Lồng — Ba Hòn Đảo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;600;700;800&display=swap"
+      rel="stylesheet"
+    />
     <style>
       * {
         box-sizing: border-box;
@@ -17,8 +23,13 @@
         height: 100%;
         overflow: hidden;
         background: #0e1430;
-        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        font-family: 'Be Vietnam Pro', 'Segoe UI', Roboto, 'Noto Sans', Arial, sans-serif;
         color: #f5f1e6;
+      }
+      button,
+      input,
+      kbd {
+        font-family: inherit;
       }
       #app {
         width: 100%;
@@ -311,6 +322,33 @@
         width: 180px;
         accent-color: #f2c14e;
       }
+      .hit-vignette {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: radial-gradient(circle, transparent 52%, rgba(255, 90, 95, 0.55) 100%);
+        opacity: 0;
+        transition: opacity 0.12s ease-out;
+        z-index: 8;
+      }
+      .minimap-wrap {
+        position: absolute;
+        bottom: 52px;
+        left: 20px;
+        width: 126px;
+        height: 126px;
+        border-radius: 50%;
+        background: rgba(14, 20, 48, 0.75);
+        border: 1.5px solid rgba(242, 193, 78, 0.5);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+        overflow: hidden;
+        pointer-events: none;
+      }
+      #minimap-canvas {
+        width: 126px;
+        height: 126px;
+        display: block;
+      }
     </style>
   </head>
   <body>
@@ -336,11 +374,15 @@
         <div id="wind-pill" class="wind-pill">Gió lớn sắp tới!</div>
         <div id="prompt-banner" class="prompt-banner">E — Nạp ánh sáng (0/10)</div>
         <div id="offscreen-arrow" class="offscreen-arrow">➤</div>
+        <div id="hit-vignette" class="hit-vignette"></div>
+        <div class="minimap-wrap">
+          <canvas id="minimap-canvas" width="126" height="126"></canvas>
+        </div>
 
         <div class="hud-bottom">
           <div class="controls-hint">
-            <kbd>WASD</kbd> Đi · <kbd>←/→</kbd> Camera · <kbd>Space</kbd> Nhảy · <kbd>Shift</kbd> Lướt ·
-            <kbd>E</kbd> Nạp · <kbd>Q</kbd> Tỏa sáng · <kbd>Esc/P</kbd> Tạm dừng
+            <kbd>WASD</kbd> Đi · <kbd>Chuột / ←→</kbd> Xoay cam · <kbd>Space</kbd> Nhảy · <kbd>Shift</kbd> Lướt ·
+            <kbd>E</kbd> Nạp · <kbd>Q</kbd> Tỏa sáng · <kbd>M</kbd> Tiếng · <kbd>Esc/P</kbd> Tạm dừng
           </div>
           <div class="mote-bar-wrap">
             <div id="mote-slots" class="mote-slots"></div>

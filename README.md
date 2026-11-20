@@ -26,7 +26,7 @@ Mở trình duyệt tại địa chỉ hiển thị (mặc định `http://local
 | Phím | Hành động |
 |---|---|
 | `W / A / S / D` | Di chuyển theo hướng camera (`6.0 m/s`, `7.2 m/s` khi có Bùa Gió) |
-| `← / →` | Xoay camera quanh Mây (độ nhạy chỉnh trong Cài đặt) |
+| `Chuột (click/kéo)` hoặc `← / →` | Xoay camera quanh Mây (độ nhạy chuột chỉnh trong Cài đặt) |
 | `Space` | Nhảy (`7.0 m/s`, trọng lực `-20 m/s²`) |
 | `Shift` | **Lướt (Dash)** (`14 m/s` trong `0.2s`, hồi chiêu `1.5s`, không hồi chiêu khi có Bùa Gió) |
 | `E` hoặc `F` | Nạp đom đóm vào Đèn Lồng Lớn gần nhất (`10` đom đóm/đèn) |
@@ -59,11 +59,12 @@ node dist-sim/headless.js --seed 42 --night 3 --ticks 600 --out tmp/out.jsonl
 
 ## Sáng tạo của tôi
 
-Các yếu tố sáng tạo được giữ ở lớp đồ họa & âm thanh (**hoàn toàn không làm thay đổi đầu ra headless**):
+Các yếu tố sáng tạo được xây dựng **100% ở lớp đồ họa & âm thanh (`src/game/`)** nên **không hề làm thay đổi đầu ra headless** (đã chứng minh qua `npm test` với 12 unit test + 9 kịch bản headless & tính tất định):
 
-1. **Mây đội nón lá treo đèn lồng đung đưa:** Đèn lồng dưới vành nón sáng mạnh dần theo số đom đóm đang mang và đung đưa theo bước chạy, kết hợp bảng màu chuẩn của lab (áo `#E8E2D0`, khăn `#C8102E`).
-2. **Vòng sáng an toàn & sóng Tỏa Sáng trực quan:** Đèn đã thắp hiển thị vòng vàng `safe_radius` 6m giúp người chơi nhận biết vùng an toàn, kèm ánh sáng môi trường tăng mượt `0.15 + 0.55 × (đèn sáng / tổng đèn)`.
-3. **Âm thanh tổng hợp Web Audio API (100% nguyên bản):** Nhạc nền đêm nhẹ và đầy đủ hiệu ứng âm thanh (nhặt, nạp, thắp đèn, tỏa sáng, lướt, nhảy, bị đánh, Bóng Mực xuất hiện, cảnh báo gió, đếm ngược 10s cuối) kèm lưu cài đặt âm lượng vào `localStorage`.
+1. **Cảnh quan bản sắc Việt cho từng Đêm:** Bầu trời sao & trăng khuyết vàng; thuyền gỗ + **Ông Đăng** đứng cạnh bến ở *Đảo Bến*; hàng **cây cau** & đèn lồng dọc cầu tre ở *Đảo Cau*; **chuông đồng phát sáng** trong tháp & **lá bay theo đúng hướng gió** `wind.dir_deg` ở *Đảo Chuông*.
+2. **Đom đóm dẫn đường & Hiệu ứng Game Feel:** Chú đom đóm nhỏ thân thiện bay quanh Mây và hướng về Đèn Lồng chưa thắp gần nhất (chỉ là thực thể hiển thị); vệt sáng vàng cam khi Mây Lướt (Dash); tàn lửa bay trời khi thắp đèn; rung camera & viền đỏ thoáng qua khi bị Bóng Mực đánh.
+3. **Minimap Radar & Kỷ lục cá nhân:** Bản đồ radar tròn ở góc dưới trái hiển thị vị trí Mây, đèn sáng/tắt và Bùa Gió; tự động lưu điểm cao nhất (High Score) mỗi Đêm vào `localStorage`.
+4. **Nhạc nền Ngũ Cung Việt Nam tổng hợp (Web Audio API):** Giai điệu ngũ cung cổ tích tự tổng hợp 100% nguyên bản, sáng ấm dần theo tiến độ thắp đèn (hỗ trợ phím `M` tắt/bật tiếng nhanh).
 
 ---
 

@@ -44,6 +44,32 @@ const charmPill = document.getElementById('charm-pill')!;
 const windPill = document.getElementById('wind-pill')!;
 const promptBanner = document.getElementById('prompt-banner')!;
 const offscreenArrow = document.getElementById('offscreen-arrow')!;
+const hitVignette = document.getElementById('hit-vignette')!;
+const minimapCanvas = document.getElementById('minimap-canvas') as HTMLCanvasElement;
+const minimapCtx = minimapCanvas.getContext('2d')!;
+
+// High scores persisted in localStorage (strictly UI-only)
+const HIGHSCORE_KEY = 'dao_den_long_highscores_v1';
+function loadHighScores(): Record<string, number> {
+  try {
+    const raw = localStorage.getItem(HIGHSCORE_KEY);
+    return raw ? (JSON.parse(raw) as Record<string, number>) : {};
+  } catch {
+    return {};
+  }
+}
+function saveHighScore(night: number, score: number): number {
+  const map = loadHighScores();
+  const key = `night${night}`;
+  const best = Math.max(map[key] ?? 0, score);
+  map[key] = best;
+  try {
+    localStorage.setItem(HIGHSCORE_KEY, JSON.stringify(map));
+  } catch {
+    // ignore
+  }
+  return best;
+}
 
 const overlay = document.getElementById('overlay')!;
 const overlayTitle = document.getElementById('overlay-title')!;
@@ -151,6 +177,81 @@ cloudSea.rotation.x = -Math.PI / 2;
 cloudSea.position.y = -11;
 scene.add(cloudSea);
 
+// Starry night sky & golden moon (cosmetic atmosphere)
+{
+  const starPositions: number[] = [];
+  for (let i = 0; i < 240; i++) {
+    const theta = ((i * 137.508) % 360) * (Math.PI / 180);
+    const phi = 0.25 + ((i * 29) % 100) / 140;
+    const r = 135;
+    starPositions.push(r * Math.cos(theta) * Math.cos(phi), r * Math.sin(phi) + 18, r * Math.sin(theta) * Math.cos(phi));
+  }
+  const starGeo = new THREE.BufferGeometry();
+  starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPositions, 3));
+  const stars = new THREE.Points(
+    starGeo,
+    new THREE.PointsMaterial({ color: COLORS.moteCore, size: 0.9, transparent: true, opacity: 0.85 })
+  );
+  scene.add(stars);
+
+  const moon = new THREE.Mesh(
+    new THREE.SphereGeometry(5.5, 16, 16),
+    new THREE.MeshBasicMaterial({ color: COLORS.lanternCore })
+  );
+  moon.position.set(-55, 62, 70);
+  scene.add(moon);
+}
+
+// Companion guide firefly (100% cosmetic, orbits Mây & nudges toward nearest unlit lantern)
+const guideFirefly = new THREE.Mesh(
+  new THREE.SphereGeometry(0.14, 8, 8),
+  new THREE.MeshBasicMaterial({ color: COLORS.gold })
+);
+scene.add(guideFirefly);
+
+// Cosmetic particle pools: dash trails, celebration embers, and Night 3 wind leaves
+interface SimpleParticle {
+  mesh: THREE.Mesh;
+  vx: number;
+  vy: number;
+  vz: number;
+  life: number;
+  maxLife: number;
+}
+const particles: SimpleParticle[] = [];
+const sparkGeo = new THREE.SphereGeometry(0.14, 6, 6);
+const sparkMat = new THREE.MeshBasicMaterial({ color: COLORS.lanternLit, transparent: true, opacity: 0.85 });
+const leafGeo = new THREE.BoxGeometry(0.28, 0.04, 0.14);
+const leafMat = new THREE.MeshBasicMaterial({ color: COLORS.gold });
+
+function spawnSpark(x: number, y: number, z: number, vx: number, vy: number, vz: number, life: number): void {
+  const m = new THREE.Mesh(sparkGeo, sparkMat);
+  m.position.set(x, y, z);
+  scene.add(m);
+  particles.push({ mesh: m, vx, vy, vz, life, maxLife: life });
+}
+
+function spawnWindLeaf(dirDeg: number): void {
+  const rad = (dirDeg * Math.PI) / 180;
+  const m = new THREE.Mesh(leafGeo, leafMat);
+  m.position.set(
+    engine.player.x + (Math.random() - 0.5) * 26 - Math.cos(rad) * 14,
+    engine.player.y + 0.8 + Math.random() * 6,
+    engine.player.z + (Math.random() - 0.5) * 26 - Math.sin(rad) * 14
+  );
+  scene.add(m);
+  particles.push({
+    mesh: m,
+    vx: Math.cos(rad) * 10,
+    vy: -0.6 + (Math.random() - 0.5),
+    vz: Math.sin(rad) * 10,
+    life: 1.6,
+    maxLife: 1.6
+  });
+}
+
+let hitShakeT = 0;
+
 // Map geometry container (rebuilt per Night)
 const mapGroup = new THREE.Group();
 scene.add(mapGroup);
@@ -182,6 +283,23 @@ function buildMapVisuals(night: number): void {
     const pier = new THREE.Mesh(new THREE.BoxGeometry(5, 0.4, 8), woodMat);
     pier.position.set(0, -0.1, 41);
     mapGroup.add(pier);
+
+    // Cosmetic sampan boat moored at Đảo Bến + Ông Đăng elder NPC near pier
+    const boat = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.7, 5.2), woodMat);
+    boat.position.set(5.2, -0.5, 42.5);
+    boat.rotation.y = 0.25;
+    mapGroup.add(boat);
+
+    const ongDang = new THREE.Group();
+    ongDang.position.set(-4.5, 0, 35);
+    const elderBody = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.5, 10), new THREE.MeshStandardMaterial({ color: COLORS.wood }));
+    elderBody.position.y = 0.75;
+    const elderHead = new THREE.Mesh(new THREE.SphereGeometry(0.3, 10, 10), new THREE.MeshStandardMaterial({ color: COLORS.mayCloak }));
+    elderHead.position.y = 1.65;
+    const staffOrb = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), padMat);
+    staffOrb.position.set(0.65, 1.6, 0.2);
+    ongDang.add(elderBody, elderHead, staffOrb);
+    mapGroup.add(ongDang);
   } else if (night === 2) {
     const islA = new THREE.Mesh(new THREE.CylinderGeometry(28, 25, 4, 40), grassMat);
     islA.position.set(0, -2, 0);
@@ -197,6 +315,32 @@ function buildMapVisuals(night: number): void {
     bridge.position.set(35, -0.25, 0);
     bridge.receiveShadow = true;
     mapGroup.add(bridge);
+
+    // Cosmetic areca palms (cây cau) & hanging bridge lanterns on Đảo Cau
+    const palmLeafMat = new THREE.MeshStandardMaterial({ color: COLORS.grass, roughness: 0.85 });
+    for (const [px, pz] of [
+      [-12, 16],
+      [14, 14],
+      [-16, -15],
+      [56, 16],
+      [84, 15],
+      [82, -16]
+    ]) {
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.28, 6.5, 8), woodMat);
+      trunk.position.set(px, 3.25, pz);
+      const crown = new THREE.Mesh(new THREE.ConeGeometry(1.7, 1.5, 7), palmLeafMat);
+      crown.position.set(px, 6.7, pz);
+      mapGroup.add(trunk, crown);
+    }
+    for (const bx of [29, 35, 41]) {
+      for (const bz of [-2.1, 2.1]) {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 2.2, 6), woodMat);
+        post.position.set(bx, 1.1, bz);
+        const orb = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), padMat);
+        orb.position.set(bx, 2.25, bz);
+        mapGroup.add(post, orb);
+      }
+    }
   } else {
     // Night 3: 3 tiers + 2 ramps + bell tower
     const t0 = new THREE.Mesh(new THREE.CylinderGeometry(45, 42, 4, 52), grassMat);
@@ -233,13 +377,16 @@ function buildMapVisuals(night: number): void {
       mapGroup.add(ramp);
     }
 
-    // Bell tower at center (r=2, h=8 on Tier 2 Y=6)
+    // Bell tower at center (r=2, h=8 on Tier 2 Y=6) + glowing golden bronze bell
     const tower = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 8, 16), woodMat);
     tower.position.set(0, 10, 0);
     tower.castShadow = true;
     mapGroup.add(tower);
+    const bell = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 1.1, 1.5, 12), padMat);
+    bell.position.set(0, 14.3, 0);
+    mapGroup.add(bell);
     const roof = new THREE.Mesh(new THREE.ConeGeometry(3.2, 2.2, 8), new THREE.MeshStandardMaterial({ color: COLORS.mayScarf }));
-    roof.position.set(0, 15.1, 0);
+    roof.position.set(0, 15.8, 0);
     mapGroup.add(roof);
   }
 
@@ -433,12 +580,34 @@ let lastWindWarn = false;
 
 const keys = new Set<string>();
 let pauseQueued = false;
+let isDraggingMouse = false;
+
+renderer.domElement.addEventListener('mousedown', (e) => {
+  if (screenMode !== 'playing') return;
+  isDraggingMouse = true;
+  if (e.button === 0 && document.pointerLockElement !== renderer.domElement) {
+    renderer.domElement.requestPointerLock?.();
+  }
+});
+window.addEventListener('mouseup', () => {
+  isDraggingMouse = false;
+});
+window.addEventListener('mousemove', (e) => {
+  if (screenMode !== 'playing') return;
+  if (document.pointerLockElement === renderer.domElement || isDraggingMouse) {
+    camYawDeg -= e.movementX * 0.18 * (settings.sensitivity / 100);
+  }
+});
 
 window.addEventListener('keydown', (e) => {
   keys.add(e.code);
+  if (e.code === 'KeyM') {
+    sound.toggleMute();
+  }
   if ((e.code === 'Escape' || e.code === 'KeyP') && (screenMode === 'playing' || screenMode === 'paused')) {
     pauseQueued = true;
     if (screenMode === 'playing') {
+      document.exitPointerLock?.();
       showPauseOverlay();
     } else if (screenMode === 'paused') {
       resumeFromPause();
@@ -593,9 +762,24 @@ function handleEvents(events: EventRecord[]): void {
       case 'deposit':
         sound.playDeposit();
         break;
-      case 'lantern_lit':
+      case 'lantern_lit': {
         sound.playLanternLit();
+        const litL = engine.lanterns.find((x) => x.id === ev.data.lantern_id);
+        if (litL) {
+          for (let i = 0; i < 16; i++) {
+            spawnSpark(
+              litL.x + (Math.random() - 0.5) * 1.4,
+              litL.y + 3.2,
+              litL.z + (Math.random() - 0.5) * 1.4,
+              (Math.random() - 0.5) * 1.6,
+              2.2 + Math.random() * 2.4,
+              (Math.random() - 0.5) * 1.6,
+              1.6
+            );
+          }
+        }
         break;
+      }
       case 'pulse':
         sound.playPulse();
         pulseAnimT = 1.0;
@@ -606,12 +790,18 @@ function handleEvents(events: EventRecord[]): void {
         break;
       case 'player_hit':
         sound.playHit();
+        hitShakeT = 0.35;
+        hitVignette.style.opacity = '1';
+        setTimeout(() => {
+          hitVignette.style.opacity = '0';
+        }, 180);
         break;
       case 'shade_spawned':
         sound.playShadeSpawn();
         break;
       case 'game_over': {
         const won = ev.data.result === 'won';
+        const best = saveHighScore(currentNight, engine.score);
         if (won) {
           sound.playWin();
           totalCampaignScore += engine.score;
@@ -625,7 +815,7 @@ function handleEvents(events: EventRecord[]): void {
                 { label: `Tiếp tục sang Đêm ${nextN}`, onClick: () => showNightIntro(nextN) },
                 { label: 'Về Menu', secondary: true, onClick: showMainMenu }
               ],
-              `Điểm Đêm ${currentNight}: ${engine.score} · Tổng điểm: ${totalCampaignScore}`
+              `Điểm Đêm ${currentNight}: ${engine.score} (Kỷ lục: ${best}) · Tổng điểm: ${totalCampaignScore}`
             );
           } else {
             screenMode = 'dawn';
@@ -633,7 +823,7 @@ function handleEvents(events: EventRecord[]): void {
               'Bình Minh Trên Đảo Đèn Lồng!',
               'Mây đã thắp sáng cả 3 hòn đảo — Đảo Bến, Đảo Cau và Đảo Chuông. Màn sương đen đã tan biến hoàn toàn!',
               [{ label: 'Chơi lại từ đầu', onClick: showMainMenu }],
-              `Điểm Đêm 3: ${engine.score} · Tổng điểm cả 3 Đêm: ${totalCampaignScore}`
+              `Điểm Đêm 3: ${engine.score} (Kỷ lục: ${best}) · Tổng điểm cả 3 Đêm: ${totalCampaignScore}`
             );
           }
         } else {
@@ -648,7 +838,7 @@ function handleEvents(events: EventRecord[]): void {
               { label: `Chơi lại Đêm ${currentNight}`, onClick: () => startNight(currentNight) },
               { label: 'Về Menu', secondary: true, onClick: showMainMenu }
             ],
-            `Điểm Đêm ${currentNight}: ${engine.score}`
+            `Điểm Đêm ${currentNight}: ${engine.score} (Kỷ lục: ${best})`
           );
         }
         break;
@@ -696,6 +886,74 @@ function syncVisuals(elapsedSec: number): void {
   // Standard ambient light formula: 0.15 + 0.55 * (lit / total)
   const progress = litCount / Math.max(1, engine.lanterns.length);
   ambientLight.intensity = 0.15 + 0.55 * progress;
+  sound.setProgress(progress);
+
+  // Dash trail sparks & Night 3 wind leaves & Guide firefly (purely cosmetic)
+  if (screenMode === 'playing' && engine.player.dashTicksLeft > 0) {
+    spawnSpark(engine.player.x, engine.player.y + 0.9, engine.player.z, 0, 0.4, 0, 0.35);
+  }
+  if (screenMode === 'playing' && (engine.wind.warning || engine.wind.active) && Math.random() < 0.35) {
+    spawnWindLeaf(engine.wind.dirDeg);
+  }
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.mesh.position.x += p.vx * DT;
+    p.mesh.position.y += p.vy * DT;
+    p.mesh.position.z += p.vz * DT;
+    p.life -= DT;
+    const ratioP = Math.max(0, p.life / p.maxLife);
+    p.mesh.scale.setScalar(ratioP);
+    if (p.life <= 0) {
+      scene.remove(p.mesh);
+      particles.splice(i, 1);
+    }
+  }
+  if (nearestUnlit) {
+    const dx = nearestUnlit.x - engine.player.x;
+    const dz = nearestUnlit.z - engine.player.z;
+    const d = Math.hypot(dx, dz) || 1;
+    guideFirefly.visible = true;
+    guideFirefly.position.set(
+      engine.player.x + (dx / d) * 1.9 + Math.cos(elapsedSec * 4) * 0.3,
+      engine.player.y + 2.0 + Math.sin(elapsedSec * 5) * 0.25,
+      engine.player.z + (dz / d) * 1.9 + Math.sin(elapsedSec * 4) * 0.3
+    );
+  } else {
+    guideFirefly.visible = false;
+  }
+
+  // Minimap radar (top-down relative to island)
+  minimapCtx.clearRect(0, 0, 126, 126);
+  const cx = 63;
+  const cy = 63;
+  const scale = 1.05;
+  minimapCtx.strokeStyle = 'rgba(242, 193, 78, 0.22)';
+  minimapCtx.beginPath();
+  minimapCtx.arc(cx, cy, 56, 0, Math.PI * 2);
+  minimapCtx.stroke();
+  for (const l of engine.lanterns) {
+    const rx = cx + (l.x - engine.player.x) * scale;
+    const ry = cy - (l.z - engine.player.z) * scale;
+    if (Math.hypot(rx - cx, ry - cy) <= 58) {
+      minimapCtx.fillStyle = l.lit ? '#FFB347' : '#5B5F6E';
+      minimapCtx.beginPath();
+      minimapCtx.arc(rx, ry, l.lit ? 4.5 : 3.5, 0, Math.PI * 2);
+      minimapCtx.fill();
+    }
+  }
+  for (const c of engine.charms) {
+    if (!c.available) continue;
+    const rx = cx + (c.x - engine.player.x) * scale;
+    const ry = cy - (c.z - engine.player.z) * scale;
+    if (Math.hypot(rx - cx, ry - cy) <= 58) {
+      minimapCtx.fillStyle = '#C8102E';
+      minimapCtx.fillRect(rx - 3, ry - 3, 6, 6);
+    }
+  }
+  minimapCtx.fillStyle = '#FFF6C2';
+  minimapCtx.beginPath();
+  minimapCtx.arc(cx, cy, 4, 0, Math.PI * 2);
+  minimapCtx.fill();
 
   // Motes
   const activeMoteIds = new Set(engine.motes.map((m) => m.id));
@@ -767,14 +1025,21 @@ function syncVisuals(elapsedSec: number): void {
     (pulseRing.material as THREE.MeshBasicMaterial).opacity = pulseAnimT * 0.8;
   }
 
-  // Camera follow
+  // Camera follow + subtle hit shake
   const yawRad = (camYawDeg * Math.PI) / 180;
   const camDist = 11.5;
   const camHeight = 6.2;
+  let shakeX = 0;
+  let shakeY = 0;
+  if (hitShakeT > 0) {
+    hitShakeT = Math.max(0, hitShakeT - DT);
+    shakeX = (Math.random() - 0.5) * 0.45 * hitShakeT;
+    shakeY = (Math.random() - 0.5) * 0.35 * hitShakeT;
+  }
   camera.position.lerp(
     new THREE.Vector3(
-      engine.player.x - Math.sin(yawRad) * camDist,
-      engine.player.y + camHeight,
+      engine.player.x - Math.sin(yawRad) * camDist + shakeX,
+      engine.player.y + camHeight + shakeY,
       engine.player.z - Math.cos(yawRad) * camDist
     ),
     0.15
@@ -875,8 +1140,8 @@ function readLiveInput(): InputState {
   let mz = 0;
   if (keys.has('KeyW') || keys.has('ArrowUp')) mz += 1;
   if (keys.has('KeyS') || keys.has('ArrowDown')) mz -= 1;
-  if (keys.has('KeyA')) mx -= 1;
-  if (keys.has('KeyD')) mx += 1;
+  if (keys.has('KeyA')) mx += 1;
+  if (keys.has('KeyD')) mx -= 1;
 
   const camSpeed = 1.8 * (settings.sensitivity / 100);
   if (keys.has('ArrowLeft')) camYawDeg += camSpeed;
