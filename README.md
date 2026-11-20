@@ -1,9 +1,9 @@
-# Đảo Đèn Lồng — Ba Hòn Đảo (Contract v1.1)
+# Đảo Đèn Lồng — Ba Hòn Đảo (Contract v1.2)
 
 > **Video demo:** *(Sẽ cập nhật link Release `v1.0.0` ở Phase 4)*
 > **Repo:** `K5-L3A-DAY12-DinhTranNguyen-2A202603517-AI-SDLC-Dao-Den-Long` · **Học viên:** Đinh Trần Nguyên (`2A202603517`)
 
-Game 3D góc nhìn thứ ba qua **3 Đêm** (*Đảo Bến*, *Đảo Cau*, *Đảo Chuông*) xây dựng bằng **TypeScript + Three.js + Vite** với lõi mô phỏng **60 Hz tất định (deterministic)** tuân thủ **Test Contract v1.1**.
+Game 3D góc nhìn thứ ba qua **3 Đêm** (*Đảo Bến*, *Đảo Cau*, *Đảo Chuông*) xây dựng bằng **TypeScript + Three.js + Vite** với lõi mô phỏng **60 Hz tất định (deterministic)** tuân thủ **Test Contract v1.2** (*Đèn cạn dầu & Sống sót tới Bình Minh*).
 
 ---
 
@@ -35,13 +35,13 @@ Mở trình duyệt tại địa chỉ hiển thị (mặc định `http://local
 
 ---
 
-## Cách tính điểm & Thông số chuẩn (`game.contract.json` v1.1)
+## Cách tính điểm & Luật chơi (`game.contract.json` v1.2)
 
-- **Nạp đom đóm vào đèn:** `+10` điểm / đom đóm (`per_mote: 10`), sức chứa tối đa `10`.
-- **Thắp sáng Đèn Lồng Lớn (đủ 10 đom đóm):** `+100` điểm (`per_lantern: 100`).
-- **Tỏa Sáng trúng Bóng Mực:** `+5` điểm / Bóng Mực (`per_stun: 5`).
-- **Thưởng khi thắng Đêm:** `+ floor(giây còn lại) × 2` + `+50 × Ngọn Lửa còn lại`.
-- **Tổng điểm chiến dịch:** Tổng điểm các Đêm đã thắng (hiển thị trên màn hình Bình Minh sau Đêm 3).
+- **Giữ đảo sáng tới Bình Minh (`dawn_survived`):** Đêm 1/2/3 kéo dài `240 / 270 / 300s`. Thắng khi còn sống tới bình minh với `>= ceil(0.6 × tổng đèn)` đèn đang sáng (**3/5**, **4/6**, **5/7**).
+- **Nhiên liệu đèn:** Đèn sáng hao `1.0/s`; dưới `30` mất vùng an toàn 6m và bị Bóng Mực `drain` (`5.0/s`). Châm dầu bằng `E` (`+10 fuel/đom đóm`); đèn tắt thắp lại chỉ tốn `5` đom đóm.
+- **Sức chứa tăng dần:** `10 + 2 × số lần thắp thành công` (tối đa `20`).
+- **Điểm số v1.2:** `+5` mỗi đom đóm nạp/châm dầu · `+100` thắp lần đầu · `+40` thắp lại · `+5` Tỏa Sáng trúng Bóng Mực (`+15` nếu đang `drain`) · Bình minh (khi thắng): `+50 + floor(fuel)` mỗi đèn sáng + `+50` mỗi Ngọn Lửa còn lại.
+- **Chế độ mù màu:** Bật trong **Cài đặt** (*Bảng màu dễ phân biệt*).
 
 ---
 
@@ -61,8 +61,8 @@ node dist-sim/headless.js --seed 42 --night 3 --ticks 600 --out tmp/out.jsonl
 
 Các yếu tố sáng tạo được xây dựng **100% ở lớp đồ họa & âm thanh (`src/game/`)** nên **không hề làm thay đổi đầu ra headless** (đã chứng minh qua `npm test` với 12 unit test + 9 kịch bản headless & tính tất định):
 
-1. **Cảnh quan bản sắc Việt cho từng Đêm:** Bầu trời sao & trăng khuyết vàng; thuyền gỗ + **Ông Đăng** đứng cạnh bến ở *Đảo Bến*; hàng **cây cau** & đèn lồng dọc cầu tre ở *Đảo Cau*; **chuông đồng phát sáng** trong tháp & **lá bay theo đúng hướng gió** `wind.dir_deg` ở *Đảo Chuông*.
-2. **Đom đóm dẫn đường & Hiệu ứng Game Feel:** Chú đom đóm nhỏ thân thiện bay quanh Mây và hướng về Đèn Lồng chưa thắp gần nhất (chỉ là thực thể hiển thị); vệt sáng vàng cam khi Mây Lướt (Dash); tàn lửa bay trời khi thắp đèn; rung camera & viền đỏ thoáng qua khi bị Bóng Mực đánh.
+1. **Cảnh quan bản sắc Việt & Bình minh cổ tích:** Bầu trời sao, trăng khuyết vàng, đèn hoa đăng trôi trên biển mây và chuyển sắc trời bình minh trong 30s cuối khi đủ ngưỡng thắng; thuyền gỗ + **Ông Đăng** ở *Đảo Bến*; hàng **cây cau** & đèn cầu tre ở *Đảo Cau*; **chuông đồng phát sáng** & **lá bay theo đúng hướng gió** ở *Đảo Chuông*.
+2. **Đom đóm dẫn đường mượt & Hiệu ứng chiến đấu (Tier S):** Đom đóm dẫn đường dùng độ trễ chuyển mục tiêu (hysteresis 3m) + nội suy mượt nên không bị giật giữa hai đèn; tia năng lượng nối Bóng Mực đang `drain` tới đèn; số điểm bay nổi (`+100`, `+40`, `+15 Ngắt hút dầu!`); vệt sáng khi Lướt; tàn lửa khi thắp đèn; đèn nón Mây rực sáng khi đầy sức chứa / có Bùa Gió; rung camera & viền đỏ khi bị đánh.
 3. **Minimap Radar & Kỷ lục cá nhân:** Bản đồ radar tròn ở góc dưới trái hiển thị vị trí Mây, đèn sáng/tắt và Bùa Gió; tự động lưu điểm cao nhất (High Score) mỗi Đêm vào `localStorage`.
 4. **Nhạc nền Ngũ Cung Việt Nam tổng hợp (Web Audio API):** Giai điệu ngũ cung cổ tích tự tổng hợp 100% nguyên bản, sáng ấm dần theo tiến độ thắp đèn (hỗ trợ phím `M` tắt/bật tiếng nhanh).
 
@@ -70,6 +70,6 @@ Các yếu tố sáng tạo được xây dựng **100% ở lớp đồ họa & 
 
 ## Tài liệu SDLC & Bằng chứng
 - Harness AI: [AGENTS.md](AGENTS.md), [.agents/skills/verify-phase/SKILL.md](.agents/skills/verify-phase/SKILL.md), [.github/workflows/ci.yml](.github/workflows/ci.yml)
-- Ghi chép SDLC: [docs/notes/phase-1.md](docs/notes/phase-1.md), [docs/notes/phase-2.md](docs/notes/phase-2.md)
-- Bằng chứng kiểm chứng: [docs/proof/phase-1-report.md](docs/proof/phase-1-report.md), [docs/proof/phase-2-report.md](docs/proof/phase-2-report.md)
+- Ghi chép SDLC & ADR: [docs/notes/phase-1.md](docs/notes/phase-1.md), [docs/notes/phase-2.md](docs/notes/phase-2.md), [docs/notes/phase-3.md](docs/notes/phase-3.md), [ADR-001](docs/notes/adr-001-fuel-and-dawn-survival.md), [CHANGELOG.md](CHANGELOG.md)
+- Bằng chứng kiểm chứng: [docs/proof/phase-1-report.md](docs/proof/phase-1-report.md), [docs/proof/phase-2-report.md](docs/proof/phase-2-report.md), [docs/proof/phase-3-report.md](docs/proof/phase-3-report.md)
 - Bản quyền & nguồn: [CREDITS.md](CREDITS.md), [LICENSE](LICENSE)
