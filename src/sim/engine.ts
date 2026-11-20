@@ -559,15 +559,14 @@ export class SimulationEngine {
     const pulsePressed = input.pulse && !this.prevInput.pulse;
     const dashPressed = input.dash && !this.prevInput.dash;
 
-    this.prevInput = {
-      move: [input.move[0], input.move[1]],
-      cam_yaw_deg: input.cam_yaw_deg,
-      jump: input.jump,
-      interact: input.interact,
-      pulse: input.pulse,
-      dash: input.dash,
-      pause: input.pause
-    };
+    this.prevInput.move[0] = input.move[0];
+    this.prevInput.move[1] = input.move[1];
+    this.prevInput.cam_yaw_deg = input.cam_yaw_deg;
+    this.prevInput.jump = input.jump;
+    this.prevInput.interact = input.interact;
+    this.prevInput.pulse = input.pulse;
+    this.prevInput.dash = input.dash;
+    this.prevInput.pause = input.pause;
 
     if (pausePressed) {
       if (this.state === 'playing') {
@@ -603,27 +602,36 @@ export class SimulationEngine {
     if (this.player.invulnTicks > 0) this.player.invulnTicks -= 1;
     if (this.player.charmTicks > 0) this.player.charmTicks -= 1;
 
-    // Lantern fuel decay + shade drain
-    const sortedShadesById = [...this.shades].sort((a, b) => a.id.localeCompare(b.id));
+    // Lantern fuel decay + shade drain (avoid array copy when no shade is draining)
+    let hasDrainingShade = false;
+    for (let i = 0; i < this.shades.length; i++) {
+      if (this.shades[i].state === 'drain') {
+        hasDrainingShade = true;
+        break;
+      }
+    }
+    const sortedShadesById = hasDrainingShade ? [...this.shades].sort((a, b) => a.id.localeCompare(b.id)) : null;
     for (const l of this.lanterns) {
       if (!l.lit) continue;
       l.fuelUnits -= FUEL_DECAY_UNITS_PER_TICK;
 
-      for (const s of sortedShadesById) {
-        if (s.state === 'drain' && s.targetLanternId === l.id) {
-          l.fuelUnits -= FUEL_DRAIN_UNITS_PER_TICK;
-          s.drainTickCounter += 1;
-          if (s.drainTickCounter % SHADE_DRAIN_EVENT_INTERVAL === 0) {
-            events.push({
-              type: 'event',
-              tick: this.tick,
-              name: 'fuel_drain',
-              data: {
-                lantern_id: l.id,
-                shade_id: s.id,
-                fuel: round1(Math.max(0, l.fuelUnits) / FUEL_UNITS_PER_FUEL)
-              }
-            });
+      if (sortedShadesById) {
+        for (const s of sortedShadesById) {
+          if (s.state === 'drain' && s.targetLanternId === l.id) {
+            l.fuelUnits -= FUEL_DRAIN_UNITS_PER_TICK;
+            s.drainTickCounter += 1;
+            if (s.drainTickCounter % SHADE_DRAIN_EVENT_INTERVAL === 0) {
+              events.push({
+                type: 'event',
+                tick: this.tick,
+                name: 'fuel_drain',
+                data: {
+                  lantern_id: l.id,
+                  shade_id: s.id,
+                  fuel: round1(Math.max(0, l.fuelUnits) / FUEL_UNITS_PER_FUEL)
+                }
+              });
+            }
           }
         }
       }
@@ -656,12 +664,20 @@ export class SimulationEngine {
       this.wind.warning = false;
     }
 
-    // Dropped mote TTL
-    this.motes = this.motes.filter((m) => {
-      if (m.ttlTicks === null) return true;
-      m.ttlTicks -= 1;
-      return m.ttlTicks > 0;
-    });
+    // Dropped mote TTL (in-place compaction to avoid per-tick array allocation)
+    let writeMoteIdx = 0;
+    for (let i = 0; i < this.motes.length; i++) {
+      const m = this.motes[i];
+      if (m.ttlTicks === null) {
+        this.motes[writeMoteIdx++] = m;
+      } else {
+        m.ttlTicks -= 1;
+        if (m.ttlTicks > 0) {
+          this.motes[writeMoteIdx++] = m;
+        }
+      }
+    }
+    this.motes.length = writeMoteIdx;
 
     // Charm respawn timers
     for (const c of this.charms) {
@@ -1250,40 +1266,48 @@ export class SimulationEngine {
 
     // 9. Collisions: Drifters steal first, then Shades hit (sorted by ascending ID)
     if (canInteractWorld) {
-      const sortedDrifters = [...this.drifters].sort((a, b) => a.id.localeCompare(b.id));
-      for (const dr of sortedDrifters) {
-        if (
-          dr.state === 'chase' &&
-          !dr.hasStolen &&
-          dr.spawnTick < this.simTick &&
-          this.player.carried > 0 &&
-          xzDistance(dr.x, dr.z, this.player.x, this.player.z) <= DRIFTER_STEAL_RADIUS
-        ) {
-          const amount = Math.min(DRIFTER_STEAL_MAX, this.player.carried);
-          this.player.carried -= amount;
-          dr.stolen = amount;
-          dr.hasStolen = true;
-          dr.state = 'flee';
-          dr.stateTicksLeft = DRIFTER_FLEE_TICKS;
-          events.push({
-            type: 'event',
-            tick: this.tick,
-            name: 'drifter_steal',
-            data: { drifter_id: dr.id, amount, carried: this.player.carried }
-          });
+      if (this.drifters.length > 0 && this.player.carried > 0) {
+        const drList = this.drifters.length > 1 ? [...this.drifters].sort((a, b) => a.id.localeCompare(b.id)) : this.drifters;
+        for (const dr of drList) {
+          if (
+            dr.state === 'chase' &&
+            !dr.hasStolen &&
+            dr.spawnTick < this.simTick &&
+            this.player.carried > 0 &&
+            xzDistance(dr.x, dr.z, this.player.x, this.player.z) <= DRIFTER_STEAL_RADIUS
+          ) {
+            const amount = Math.min(DRIFTER_STEAL_MAX, this.player.carried);
+            this.player.carried -= amount;
+            dr.stolen = amount;
+            dr.hasStolen = true;
+            dr.state = 'flee';
+            dr.stateTicksLeft = DRIFTER_FLEE_TICKS;
+            events.push({
+              type: 'event',
+              tick: this.tick,
+              name: 'drifter_steal',
+              data: { drifter_id: dr.id, amount, carried: this.player.carried }
+            });
+          }
         }
       }
 
-      if (this.player.invulnTicks <= 0) {
-        const sortedShades = [...this.shades].sort((a, b) => a.id.localeCompare(b.id));
-        const hitter = sortedShades.find(
-          (s) =>
+      if (this.player.invulnTicks <= 0 && this.shades.length > 0) {
+        let hitter: ShadeState | null = null;
+        for (let i = 0; i < this.shades.length; i++) {
+          const s = this.shades[i];
+          if (
             s.spawnTick < this.simTick &&
             s.safePushTicks <= 0 &&
             (s.state === 'chase' || s.state === 'wander' || s.state === 'drain') &&
             xzDistance(this.player.x, this.player.z, s.x, s.z) <= this.tuning.shade_hit_radius &&
             Math.abs(this.player.y - (s.y - 1.0)) <= 1.5
-        );
+          ) {
+            if (!hitter || s.id.localeCompare(hitter.id) < 0) {
+              hitter = s;
+            }
+          }
+        }
         if (hitter) {
           this.player.flames = Math.max(0, this.player.flames - 1);
           const dropped = Math.floor(this.player.carried * this.tuning.hit_drop_ratio);

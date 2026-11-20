@@ -5,7 +5,7 @@
   "run_cmd": "node scripts/run-game.mjs",
   "headless_cmd": "node dist-sim/headless.js",
   "bench_cmd": "node scripts/bench.mjs",
-  "soak_cmd": "node --max-semi-space-size=4 --expose-gc dist-sim/soak.js",
+  "soak_cmd": "node --max-semi-space-size=2 --expose-gc dist-sim/soak.js",
   "tuning": {
     "player_speed": 6.0,
     "dash_speed": 14.0,

@@ -55,30 +55,28 @@ function getRssMb(): number {
 function main(): void {
   const opts = parseArgs(process.argv.slice(2));
 
-  // Pre-warm V8 JIT & nursery across Nights 1-3 before Night 1 so Linux/macOS/Windows RSS reflects steady-state memory
+  // Pre-warm all V8 JIT tiers (Sparkplug -> Maglev -> TurboFan) across Nights 1-3 (~40ms)
+  // so mem_start_mb reflects steady-state RSS rather than lazy JIT compilation during Nights 1-10
   for (let wn = 1; wn <= 3; wn++) {
-    const warm = new SimulationEngine(wn, wn, DEFAULT_TUNING);
+    const warm = new SimulationEngine(wn, wn, DEFAULT_TUNING, { player: { flames: 99 } });
     const wrng = new DeterministicRNG(wn * 97 + 13);
+    const wi = createDefaultInput();
     let wmx = 1;
     let wmz = 0;
-    for (let w = 0; w < 2400 && warm.state === 'playing'; w++) {
+    for (let w = 0; w < 10000 && warm.state === 'playing'; w++) {
       if (w % 30 === 0) {
         const a = wrng.range(0, Math.PI * 2);
         wmx = Math.cos(a);
         wmz = Math.sin(a);
       }
-      const wi = createDefaultInput();
-      wi.move = [wmx, wmz];
+      wi.move[0] = wmx;
+      wi.move[1] = wmz;
       wi.jump = w % 20 === 0;
       wi.dash = w % 35 === 0;
       wi.pulse = w % 50 === 0;
       wi.interact = w % 10 === 0;
       warm.step(wi);
     }
-  }
-
-  if (typeof globalThis.gc === 'function') {
-    globalThis.gc();
   }
 
   const t0 = performance.now();
@@ -141,6 +139,9 @@ function main(): void {
 
       results.push(engine.state === 'won' ? 'won' : 'lost');
       engine = null;
+      if (typeof globalThis.gc === 'function') {
+        globalThis.gc();
+      }
     } catch (err) {
       crashes += 1;
       results.push('crash');

@@ -21,7 +21,7 @@ if (p3.status !== 0) {
 const soakOut = path.join(tmpDir, 'soak-test.json');
 const soakRes = spawnSync(
   process.execPath,
-  ['--max-semi-space-size=4', '--expose-gc', path.join(root, 'dist-sim', 'soak.js'), '--seed', '7', '--nights', '10', '--out', soakOut],
+  ['--max-semi-space-size=2', '--expose-gc', path.join(root, 'dist-sim', 'soak.js'), '--seed', '7', '--nights', '10', '--out', soakOut],
   { encoding: 'utf8' }
 );
 assert.equal(soakRes.status, 0, soakRes.stderr);
