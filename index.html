@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Đảo Đèn Lồng — Đêm 1: Đảo Bến</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        user-select: none;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #0b0a1a;
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        color: #fff6e5;
+      }
+      #app {
+        width: 100%;
+        height: 100%;
+        position: relative;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      .hud {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        padding: 16px 20px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      .hud-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
+      }
+      .panel {
+        background: rgba(14, 12, 30, 0.72);
+        border: 1px solid rgba(255, 196, 107, 0.35);
+        border-radius: 12px;
+        padding: 10px 16px;
+        backdrop-filter: blur(6px);
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+      }
+      .title-badge {
+        font-size: 13px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #ffca7a;
+        margin-bottom: 4px;
+      }
+      .stats-row {
+        display: flex;
+        gap: 18px;
+        align-items: center;
+        font-size: 15px;
+        font-weight: 600;
+      }
+      .stat-val {
+        color: #ffd584;
+      }
+      .flames {
+        color: #ff8c42;
+        letter-spacing: 2px;
+        font-size: 18px;
+      }
+      .controls-hint {
+        align-self: center;
+        font-size: 13px;
+        color: #e8dcc8;
+        background: rgba(14, 12, 30, 0.65);
+        border: 1px solid rgba(255, 196, 107, 0.25);
+        padding: 8px 14px;
+        border-radius: 999px;
+      }
+      .controls-hint kbd {
+        background: rgba(255, 202, 122, 0.2);
+        border: 1px solid rgba(255, 202, 122, 0.45);
+        border-radius: 4px;
+        padding: 1px 6px;
+        color: #ffdd99;
+        font-family: inherit;
+        font-weight: 600;
+      }
+      .prompt-banner {
+        position: absolute;
+        bottom: 72px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(255, 174, 66, 0.92);
+        color: #1c1208;
+        font-weight: 700;
+        padding: 8px 18px;
+        border-radius: 999px;
+        font-size: 14px;
+        display: none;
+        box-shadow: 0 4px 18px rgba(255, 174, 66, 0.45);
+      }
+      .overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(9, 7, 22, 0.8);
+        backdrop-filter: blur(8px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+      }
+      .overlay.hidden {
+        display: none;
+      }
+      .card {
+        max-width: 460px;
+        width: 90%;
+        background: linear-gradient(180deg, rgba(28, 22, 52, 0.96), rgba(16, 12, 34, 0.98));
+        border: 1px solid rgba(255, 196, 107, 0.5);
+        border-radius: 18px;
+        padding: 28px 30px;
+        text-align: center;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65);
+      }
+      .card h1 {
+        font-size: 28px;
+        color: #ffd584;
+        margin-bottom: 10px;
+      }
+      .card p {
+        font-size: 15px;
+        line-height: 1.55;
+        color: #e6dac6;
+        margin-bottom: 18px;
+      }
+      .btn {
+        background: linear-gradient(135deg, #ffae42, #ff7b29);
+        color: #1c1006;
+        border: none;
+        border-radius: 999px;
+        padding: 12px 28px;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 6px 20px rgba(255, 148, 52, 0.45);
+        transition: transform 0.12s ease, filter 0.12s ease;
+      }
+      .btn:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.08);
+      }
+      .score-summary {
+        margin: 14px 0 20px;
+        padding: 12px;
+        border-radius: 10px;
+        background: rgba(255, 202, 122, 0.1);
+        border: 1px solid rgba(255, 202, 122, 0.25);
+        font-size: 15px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div class="hud">
+        <div class="hud-top">
+          <div class="panel">
+            <div class="title-badge">Đêm 1 · Đảo Bến</div>
+            <div class="stats-row">
+              <div>Máu: <span id="hud-flames" class="flames">🔥🔥🔥</span></div>
+              <div>Đom đóm: <span id="hud-carried" class="stat-val">0 / 5</span></div>
+              <div>Đèn Lớn: <span id="hud-lanterns" class="stat-val">0 / 5</span></div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="stats-row">
+              <div>Thời gian: <span id="hud-time" class="stat-val">05:00</span></div>
+              <div>Điểm: <span id="hud-score" class="stat-val">0</span></div>
+            </div>
+          </div>
+        </div>
+        <div id="prompt-banner" class="prompt-banner">Nhấn [E] để nạp ánh sáng vào Đèn Lồng Lớn</div>
+        <div class="controls-hint">
+          <kbd>WASD</kbd> Di chuyển · <kbd>← / →</kbd> Xoay camera · <kbd>Space</kbd> Nhảy ·
+          <kbd>E</kbd> hoặc <kbd>F</kbd> Nạp đèn · <kbd>Shift</kbd> Tỏa sáng (tốn 2 đom đóm) · <kbd>R</kbd> Chơi lại
+        </div>
+      </div>
+
+      <div id="overlay" class="overlay">
+        <div class="card">
+          <h1 id="overlay-title">Đảo Đèn Lồng</h1>
+          <p id="overlay-desc">
+            Mây cần thu thập đom đóm vàng cam để thắp sáng cả 5 Đèn Lồng Lớn trên Đảo Bến trước khi bình minh tới.
+            Hãy tránh Bóng Mực trong màn sương tím đen hoặc dùng Tỏa Sáng để xua chúng đi!
+          </p>
+          <div id="overlay-stats" class="score-summary" style="display: none"></div>
+          <button id="overlay-btn" class="btn">Bắt đầu Đêm 1</button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/game/main.ts"></script>
+  </body>
+</html>
