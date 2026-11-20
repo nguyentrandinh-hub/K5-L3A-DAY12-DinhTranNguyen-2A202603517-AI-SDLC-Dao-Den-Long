@@ -5,10 +5,12 @@ import path from 'node:path';
 import { createDefaultInput, SimulationEngine } from '../engine.js';
 import { DEFAULT_TUNING } from '../tuning.js';
 
-test('DEFAULT_TUNING matches game.contract.json v1.2 exactly', () => {
+test('DEFAULT_TUNING matches game.contract.json v1.3 exactly', () => {
   const contractPath = path.resolve(process.cwd(), 'game.contract.json');
   const contract = JSON.parse(fs.readFileSync(contractPath, 'utf8'));
-  assert.equal(contract.contract_version, '1.2');
+  assert.equal(contract.contract_version, '1.3');
+  assert.ok(typeof contract.bench_cmd === 'string' && contract.bench_cmd.length > 0);
+  assert.ok(typeof contract.soak_cmd === 'string' && contract.soak_cmd.length > 0);
   assert.deepEqual(DEFAULT_TUNING, contract.tuning);
 });
 

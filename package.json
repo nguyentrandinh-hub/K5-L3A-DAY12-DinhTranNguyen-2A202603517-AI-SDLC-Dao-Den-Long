@@ -8,10 +8,13 @@
     "build:sim": "tsc -p tsconfig.sim.json",
     "build:web": "vite build",
     "build": "npm run build:sim && npm run build:web",
-    "preview": "vite preview --host",
+    "preview": "node scripts/run-game.mjs",
+    "start": "node scripts/run-game.mjs",
     "headless": "node dist-sim/headless.js",
+    "soak": "node dist-sim/soak.js",
+    "bench": "node scripts/bench.mjs",
     "test:unit": "npm run build:sim && node --test dist-sim/tests/*.test.js",
-    "test:scenarios": "npm run build:sim && node scripts/verify-phase3.mjs",
+    "test:scenarios": "npm run build:sim && node scripts/verify-phase4.mjs",
     "test": "npm run test:unit && npm run test:scenarios"
   },
   "dependencies": {
