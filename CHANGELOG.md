@@ -1,5 +1,17 @@
 # Changelog
 
+## [v1.0.0 — Phase 4 — Contract v1.3] — 2026-11-20
+
+### Added
+- **Contract v1.3:** Thêm `bench_cmd` (`node scripts/bench.mjs`) và `soak_cmd` (`node dist-sim/soak.js`) vào `game.contract.json`.
+- **Chế độ Benchmark 1280×720 (`scripts/bench.mjs` + `src/game/bench-runner.ts`):** Cảnh chuẩn Đêm 1 với 200 Bóng Mực `wander` (InstancedMesh), 100 đom đóm, L1–L3 sáng `fuel = 100`, camera quay tròn `r=30m, Y=15m` (15s/vòng), tắt hiệu ứng sáng tạo, xuất `bench.json`.
+- **Soak Test 10 Đêm (`src/sim/soak.ts`):** Chạy 10 Đêm liên tiếp xoay vòng 1→2→3 trong cùng 1 tiến trình với input ngẫu nhiên theo seed, đo `mem_start_mb`, `mem_end_mb`, `crashes`, xuất `soak.json`.
+- **Bảng xếp hạng cục bộ (`scripts/run-game.mjs` + UI):** Lưu top 10 trên đĩa (`data/leaderboard.json`), nhập tên 3–12 ký tự (hỗ trợ tiếng Việt có dấu), hỗ trợ xuất chuẩn `<run_cmd> --export-leaderboard out.json`.
+- **Accessibility (Dễ tiếp cận):** Đổi toàn bộ phím kèm phát hiện trùng phím + khôi phục mặc định; phụ đề & mũi tên mép màn hình cho Bóng Mực xuất hiện, gió, 10s cuối, đèn `< 30` dầu; chế độ Giảm chuyển động; cỡ chữ UI tối thiểu `18px` và tùy chọn Chữ lớn (`×1.25`).
+- **Tài liệu phát hành:** Retro tổng kết 4 phase (`docs/notes/retro.md`), báo cáo kiểm chứng Phase 4 (`docs/proof/phase-4-report.md`), cập nhật `README.md` hoàn chỉnh cho Release `v1.0.0`.
+
+---
+
 ## [Phase 3 — Contract v1.2] — 2026-11-20 (BREAKING CHANGES)
 
 ### Breaking Changes (Thay thế luật Phase 1–2 theo Ticket-03)
