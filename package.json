@@ -11,7 +11,7 @@
     "preview": "node scripts/run-game.mjs",
     "start": "node scripts/run-game.mjs",
     "headless": "node dist-sim/headless.js",
-    "soak": "node dist-sim/soak.js",
+    "soak": "node --max-semi-space-size=4 --expose-gc dist-sim/soak.js",
     "bench": "node scripts/bench.mjs",
     "test:unit": "npm run build:sim && node --test dist-sim/tests/*.test.js",
     "test:scenarios": "npm run build:sim && node scripts/verify-phase4.mjs",

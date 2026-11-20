@@ -55,12 +55,30 @@ function getRssMb(): number {
 function main(): void {
   const opts = parseArgs(process.argv.slice(2));
 
-  // Pre-warm V8 JIT before Night 1 so RSS reflects steady-state simulation memory rather than initial JIT compilation
-  {
-    const warm = new SimulationEngine(0, 1, DEFAULT_TUNING);
-    const wi = createDefaultInput();
-    wi.move = [1, 0];
-    for (let w = 0; w < 2400 && warm.state === 'playing'; w++) warm.step(wi);
+  // Pre-warm V8 JIT & nursery across Nights 1-3 before Night 1 so Linux/macOS/Windows RSS reflects steady-state memory
+  for (let wn = 1; wn <= 3; wn++) {
+    const warm = new SimulationEngine(wn, wn, DEFAULT_TUNING);
+    const wrng = new DeterministicRNG(wn * 97 + 13);
+    let wmx = 1;
+    let wmz = 0;
+    for (let w = 0; w < 2400 && warm.state === 'playing'; w++) {
+      if (w % 30 === 0) {
+        const a = wrng.range(0, Math.PI * 2);
+        wmx = Math.cos(a);
+        wmz = Math.sin(a);
+      }
+      const wi = createDefaultInput();
+      wi.move = [wmx, wmz];
+      wi.jump = w % 20 === 0;
+      wi.dash = w % 35 === 0;
+      wi.pulse = w % 50 === 0;
+      wi.interact = w % 10 === 0;
+      warm.step(wi);
+    }
+  }
+
+  if (typeof globalThis.gc === 'function') {
+    globalThis.gc();
   }
 
   const t0 = performance.now();
@@ -68,6 +86,7 @@ function main(): void {
   let crashes = 0;
   const results: string[] = [];
   let memStartMb = 0;
+  const input = createDefaultInput();
 
   for (let i = 0; i < opts.nights; i++) {
     const nightNum = (i % 3) + 1;
@@ -105,8 +124,8 @@ function main(): void {
         const wantPulse: boolean = !prevPulse && inputRng.next() < 0.02;
         const wantInteract: boolean = !prevInteract && inputRng.next() < 0.1;
 
-        const input = createDefaultInput();
-        input.move = [moveX, moveZ];
+        input.move[0] = moveX;
+        input.move[1] = moveZ;
         input.jump = wantJump;
         input.dash = wantDash;
         input.pulse = wantPulse;
