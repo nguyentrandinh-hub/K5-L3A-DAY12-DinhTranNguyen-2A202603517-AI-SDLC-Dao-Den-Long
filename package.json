@@ -1,0 +1,26 @@
+{
+  "name": "dao-den-long",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build:sim": "tsc -p tsconfig.sim.json",
+    "build:web": "vite build",
+    "build": "npm run build:sim && npm run build:web",
+    "preview": "vite preview --host",
+    "headless": "node dist-sim/headless.js",
+    "test:unit": "npm run build:sim && node --test dist-sim/tests/*.test.js",
+    "test:scenarios": "npm run build:sim && node scripts/verify-phase1.mjs",
+    "test": "npm run test:unit && npm run test:scenarios"
+  },
+  "dependencies": {
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/three": "^0.170.0",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  }
+}

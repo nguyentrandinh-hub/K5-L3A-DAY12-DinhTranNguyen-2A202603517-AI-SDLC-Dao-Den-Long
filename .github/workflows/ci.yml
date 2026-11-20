@@ -1,0 +1,22 @@
+name: CI Verify
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["phase-*", "v*"]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install dependencies
+        run: npm install
+      - name: Build simulation and 3D web bundle
+        run: npm run build
+      - name: Run unit tests and headless contract scenarios
+        run: npm test
