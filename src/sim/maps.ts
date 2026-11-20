@@ -63,7 +63,7 @@ const NIGHT_1_MAP: NightMapDef = {
   name: 'Đêm 1 — Đảo Bến',
   introQuote:
     '“Sương đen đã phủ kín bến thuyền rồi, Mây à. Hãy gom những đốm đom đóm đầu tiên và thắp lại 5 Đèn Lồng Lớn trước bình minh.” — Ông Đăng',
-  durationS: 300,
+  durationS: 240,
   shadeSpeed: 4.0,
   shadeIntervalTicks: 480, // 8s
   maxShades: 6,
@@ -95,7 +95,7 @@ const NIGHT_2_MAP: NightMapDef = {
   name: 'Đêm 2 — Đảo Cau',
   introQuote:
     '“Đảo Cau có hai bờ nối bằng cầu tre mỏng manh. Coi chừng Gió Lạc lượn quanh — chúng mê ánh sáng lắm, nhưng Bùa Gió sẽ giúp con chạy nhanh hơn.” — Ông Đăng',
-  durationS: 330,
+  durationS: 270,
   shadeSpeed: 4.0,
   shadeIntervalTicks: 420, // 7s
   maxShades: 8,
@@ -133,7 +133,7 @@ const NIGHT_3_MAP: NightMapDef = {
   name: 'Đêm 3 — Đảo Chuông',
   introQuote:
     '“Đêm cuối cùng trên Đảo Chuông ba tầng. Gió lớn sẽ nổi lên từng đợt — hãy giữ vững bước chân, leo lên tầng tháp chuông và đánh thức bình minh!” — Ông Đăng',
-  durationS: 360,
+  durationS: 300,
   shadeSpeed: 4.5,
   shadeIntervalTicks: 360, // 6s
   maxShades: 10,

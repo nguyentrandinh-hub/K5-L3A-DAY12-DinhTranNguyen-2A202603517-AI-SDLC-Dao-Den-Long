@@ -5,6 +5,21 @@ export const DT = 1 / TICK_RATE;
 export const JUMP_VELOCITY = 7.0;
 export const GRAVITY = -20.0;
 
+export const FUEL_UNITS_PER_FUEL = 60;
+export const FUEL_MAX_UNITS = 100 * FUEL_UNITS_PER_FUEL; // 6000
+export const FUEL_LOW_UNITS = 30 * FUEL_UNITS_PER_FUEL; // 1800
+export const FUEL_PER_MOTE_UNITS = 10 * FUEL_UNITS_PER_FUEL; // 600
+export const FUEL_DECAY_UNITS_PER_TICK = 1; // 1.0 fuel/s
+export const FUEL_DRAIN_UNITS_PER_TICK = 5; // 5.0 fuel/s
+
+export const RELIGHT_SCORE = 40;
+export const DRAIN_STUN_SCORE = 15;
+export const DAWN_LIT_LANTERN_BONUS = 50;
+
+export const SHADE_DRAIN_RADIUS = 2.0;
+export const SHADE_DRAIN_AGGRO_RADIUS = 6.0;
+export const SHADE_DRAIN_EVENT_INTERVAL = 60;
+
 export const CHARM_SPEED = 7.2;
 export const CHARM_DURATION_TICKS = 600;
 export const CHARM_RESPAWN_TICKS = 2700;
@@ -49,15 +64,23 @@ export const DEFAULT_TUNING: TuningConfig = {
   dash_duration_s: 0.2,
   dash_cooldown_s: 1.5,
   carry_capacity: 10,
+  capacity_max: 20,
   lantern_cost: 10,
+  relight_cost: 5,
   lantern_count_night1: 5,
+  fuel_max: 100,
+  fuel_decay_per_s: 1.0,
+  fuel_per_mote: 10,
+  drain_per_s: 5,
+  low_fuel_threshold: 30,
+  win_ratio: 0.6,
   pickup_radius: 1.0,
   interact_radius: 2.0,
   pulse_cost: 3,
   pulse_radius: 5.0,
-  night1_duration_s: 300,
-  night2_duration_s: 330,
-  night3_duration_s: 360,
+  night1_duration_s: 240,
+  night2_duration_s: 270,
+  night3_duration_s: 300,
   flames: 3,
   invuln_s: 1.5,
   hit_drop_ratio: 0.5,
@@ -69,10 +92,10 @@ export const DEFAULT_TUNING: TuningConfig = {
   shade_hit_radius: 1.0,
   fall_enabled: true,
   score: {
-    per_mote: 10,
+    per_mote: 5,
     per_lantern: 100,
     per_stun: 5,
-    per_second_left: 2,
+    per_second_left: 0,
     per_flame_left: 50
   }
 };
