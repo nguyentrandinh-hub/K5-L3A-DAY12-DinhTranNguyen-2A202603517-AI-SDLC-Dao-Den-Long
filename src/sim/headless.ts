@@ -41,7 +41,7 @@ function parseArgs(argv: string[]): CliOptions {
       case '--night':
         if (next === undefined) fail('Missing value for --night');
         night = Number(next);
-        if (!Number.isInteger(night) || night < 1) fail(`Invalid --night: ${next}`);
+        if (!Number.isInteger(night) || night < 1 || night > 3) fail(`Invalid --night: ${next} (expected 1, 2, or 3)`);
         i++;
         break;
       case '--scenario':
@@ -147,7 +147,7 @@ function parseInputsFile(filePath: string): InputFrame[] {
     if (f.cam_yaw_deg !== undefined && (typeof f.cam_yaw_deg !== 'number' || !Number.isFinite(f.cam_yaw_deg))) {
       fail(`Invalid cam_yaw_deg at frame ${i}`, 2);
     }
-    for (const key of ['jump', 'interact', 'pulse'] as const) {
+    for (const key of ['jump', 'interact', 'pulse', 'dash', 'pause'] as const) {
       if (f[key] !== undefined && typeof f[key] !== 'boolean') {
         fail(`Invalid ${key} at frame ${i}: expected boolean`, 2);
       }
@@ -192,11 +192,10 @@ function parseScenarioFile(filePath: string): ScenarioFile {
     }
   }
 
-  if (sc.random_motes !== undefined && typeof sc.random_motes !== 'boolean') {
-    fail('Invalid scenario.random_motes: expected boolean', 2);
-  }
-  if (sc.random_shades !== undefined && typeof sc.random_shades !== 'boolean') {
-    fail('Invalid scenario.random_shades: expected boolean', 2);
+  for (const flag of ['random_motes', 'random_shades', 'random_drifters', 'wind_enabled'] as const) {
+    if (sc[flag] !== undefined && typeof sc[flag] !== 'boolean') {
+      fail(`Invalid scenario.${flag}: expected boolean`, 2);
+    }
   }
   if (sc.time_left_s !== undefined && (typeof sc.time_left_s !== 'number' || !Number.isFinite(sc.time_left_s))) {
     fail('Invalid scenario.time_left_s: expected number', 2);
@@ -218,6 +217,26 @@ function parseScenarioFile(filePath: string): ScenarioFile {
       const s = sc.shades[i];
       if (typeof s !== 'object' || s === null || !isVec3(s.pos)) {
         fail(`Invalid scenario.shades[${i}]`, 2);
+      }
+    }
+  }
+
+  if (sc.drifters !== undefined) {
+    if (!Array.isArray(sc.drifters)) fail('Invalid scenario.drifters: expected array', 2);
+    for (let i = 0; i < sc.drifters.length; i++) {
+      const d = sc.drifters[i];
+      if (typeof d !== 'object' || d === null || !isVec3(d.pos)) {
+        fail(`Invalid scenario.drifters[${i}]`, 2);
+      }
+    }
+  }
+
+  if (sc.charms !== undefined) {
+    if (!Array.isArray(sc.charms)) fail('Invalid scenario.charms: expected array', 2);
+    for (let i = 0; i < sc.charms.length; i++) {
+      const c = sc.charms[i];
+      if (typeof c !== 'object' || c === null || !isVec3(c.pos)) {
+        fail(`Invalid scenario.charms[${i}]`, 2);
       }
     }
   }
@@ -253,9 +272,8 @@ function main(): void {
   let frameIdx = 0;
 
   for (let k = 0; k < opts.ticks; k++) {
-    if (engine.state !== 'playing') break;
+    if ((engine.state as string) === 'won' || (engine.state as string) === 'lost') break;
 
-    // Apply frame for tick k if present
     while (frameIdx < frames.length && frames[frameIdx].tick === k) {
       const f = frames[frameIdx];
       if (f.move !== undefined) currentInput.move = [f.move[0], f.move[1]];
@@ -263,6 +281,8 @@ function main(): void {
       if (f.jump !== undefined) currentInput.jump = f.jump;
       if (f.interact !== undefined) currentInput.interact = f.interact;
       if (f.pulse !== undefined) currentInput.pulse = f.pulse;
+      if (f.dash !== undefined) currentInput.dash = f.dash;
+      if (f.pause !== undefined) currentInput.pause = f.pause;
       frameIdx++;
     }
 
@@ -275,7 +295,7 @@ function main(): void {
       lines.push(JSON.stringify(engine.getSnapshot()));
     }
 
-    if (engine.state !== 'playing') break;
+    if ((engine.state as string) === 'won' || (engine.state as string) === 'lost') break;
   }
 
   lines.push(JSON.stringify(engine.getEndRecord()));
