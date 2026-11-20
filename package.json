@@ -11,7 +11,7 @@
     "preview": "vite preview --host",
     "headless": "node dist-sim/headless.js",
     "test:unit": "npm run build:sim && node --test dist-sim/tests/*.test.js",
-    "test:scenarios": "npm run build:sim && node scripts/verify-phase1.mjs",
+    "test:scenarios": "npm run build:sim && node scripts/verify-phase2.mjs",
     "test": "npm run test:unit && npm run test:scenarios"
   },
   "dependencies": {
